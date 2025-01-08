@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
 
-#define WIDTH 41 // Increased width for better scaling
-#define HEIGHT 41 // Increased height for better scaling
+#define WIDTH 21
+#define HEIGHT 21
 #define WALL 1
 #define PATH 0
 
@@ -19,7 +20,25 @@ typedef struct {
 
 // Function to check if a position is valid and inside the maze
 int is_valid(int x, int y) {
-    return x > 0 && y > 0 && x < HEIGHT - 1 && y < WIDTH - 1;
+    return x >= 0 && y >= 0 && x < HEIGHT && y < WIDTH;
+}
+
+// Function to print the maze
+void print_maze() {
+    for (int i = 0; i < HEIGHT; i++) {
+        for (int j = 0; j < WIDTH; j++) {
+            if (maze[i][j] == WALL) {
+                printf("█");
+            } else if (i == start_x && j == start_y) {
+                printf("S");  // Start point
+            } else if (i == end_x && j == end_y) {
+                printf("E");  // End point
+            } else {
+                printf(" ");
+            }
+        }
+        printf("\n");
+    }
 }
 
 // Function to generate the maze using Prim's algorithm
@@ -78,50 +97,47 @@ void generate_maze() {
     }
 }
 
-// Function to output the maze to an SVG file
-void output_svg(const char *filename) {
-    FILE *file = fopen(filename, "w");
-    
-    if (file == NULL) {
-        printf("Error opening file for writing.\n");
-        return;
+// Depth-First Search (DFS) to find a path from start to end
+int solve_maze(int x, int y) {
+    if (x == end_x && y == end_y) {
+        return 1;  // Reached the end
     }
     
-    // SVG header
-    fprintf(file, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\">\n", WIDTH * 20, HEIGHT * 20);
+    // Mark the current cell as part of the solution path
+    maze[x][y] = 2;  // 2 indicates part of the solution path
     
-    // Drawing the maze
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
-            int x = j * 20;
-            int y = i * 20;
-            if (maze[i][j] == WALL) {
-                fprintf(file, "<rect x=\"%d\" y=\"%d\" width=\"20\" height=\"20\" fill=\"black\" />\n", x, y);
-            } else {
-                // Path is white (background), no need to draw
+    // Try all possible directions (up, down, left, right)
+    for (int i = 0; i < 4; i++) {
+        int nx = x + dir[i][0];
+        int ny = y + dir[i][1];
+        
+        if (is_valid(nx, ny) && maze[nx][ny] == PATH) {
+            if (solve_maze(nx, ny)) {
+                return 1;  // Return true if the path is found
             }
         }
     }
     
-    // Drawing a circle around the start (S) point
-    fprintf(file, "<circle cx=\"%d\" cy=\"%d\" r=\"12\" fill=\"none\" stroke=\"white\" stroke-width=\"3\" />\n", start_y * 20 + 10, start_x * 20 + 15);
-    
-    // Drawing a circle around the end (E) point
-    fprintf(file, "<circle cx=\"%d\" cy=\"%d\" r=\"12\" fill=\"none\" stroke=\"yellow\" stroke-width=\"3\" />\n", end_y * 20 + 10, end_x * 20);
-
-    // Drawing the start (S) and end (E) points with more contrast and bold
-    fprintf(file, "<text x=\"%d\" y=\"%d\" font-family=\"Arial\" font-size=\"20\" font-weight=\"bold\" fill=\"white\" stroke=\"black\" stroke-width=\"2\" text-anchor=\"middle\" dy=\"0.4em\">S</text>\n", start_y * 20 + 10, start_x * 20 + 15);
-    fprintf(file, "<text x=\"%d\" y=\"%d\" font-family=\"Arial\" font-size=\"20\" font-weight=\"bold\" fill=\"yellow\" stroke=\"black\" stroke-width=\"2\" text-anchor=\"middle\" dy=\"0.4em\">E</text>\n", end_y * 20, end_x * 20 + 5);
-    
-    // SVG footer
-    fprintf(file, "</svg>\n");
-    
-    fclose(file);
-    printf("Maze saved as %s\n", filename);
+    // If no path is found, backtrack by marking the current cell as visited
+    maze[x][y] = 3;  // 3 indicates visited but not part of the solution
+    return 0;  // No path found
 }
 
 int main() {
+    // Step 1: Generate the maze
     generate_maze();
-    output_svg("maze.svg");
+    
+    // Step 2: Print the generated maze
+    printf("Generated Maze:\n");
+    print_maze();
+    
+    // Step 3: Solve the maze using DFS
+    if (solve_maze(start_x, start_y)) {
+        printf("\nSolved Maze:\n");
+        print_maze();
+    } else {
+        printf("\nNo path found from S to E.\n");
+    }
+    
     return 0;
 }
